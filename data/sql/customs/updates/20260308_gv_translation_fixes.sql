@@ -21,3 +21,26 @@ WHERE `expansion_key` = 'expedition';
 UPDATE `customs`.`gv_upgrade_poi`
 SET `name_en` = 'Profession: Inscription'
 WHERE `expansion_key` = 'prof_inscription';
+
+UPDATE `customs`.`gv_upgrade_catalog`
+SET
+	`label_cs` = `label_en`,
+	`info_cs` = NULLIF(`info_en`, 'NULL'),
+	`info_en` = NULLIF(`info_en`, 'NULL');
+
+UPDATE `customs`.`gv_upgrade_poi`
+SET `name_cs` = `name_en`;
+
+UPDATE `customs`.`gv_teleport_menu`
+SET `label_cs` = `label_en`;
+
+UPDATE `customs`.`gv_production_catalog`
+SET `label_cs` = `label_en`;
+
+UPDATE `customs`.`gv_expedition_gear_catalog`
+SET `label_cs` = `label_en`;
+
+UPDATE `customs`.`gv_quest_catalog`
+SET
+	`quest_name_cs` = `quest_name_en`,
+	`info_cs` = `info_en`;

@@ -8,13 +8,13 @@
 #include "Chat.h"
 #include "Config.h"
 
-// ====== Konfigurace: mapa vesnice (sjednoceno napříč modulem) ======
+// ====== Configuration: village map (shared across the module) ======
 static inline uint32 DefMap()
 {
     return sConfigMgr->GetOption<uint32>("GuildVillage.Default.Map", 37);
 }
 
-// ==== Shared per-player stash (stejné jméno/typ jako v commands/NPC) ====
+// ==== Shared per-player stash (same name/type as commands/NPC) ====
 struct GVPhaseData : public DataMap::Base
 {
     uint32 phaseMask = 0;
@@ -62,13 +62,13 @@ static bool FindSpiritHealerPos(uint32 map, uint32 phaseId, float& x, float& y, 
 }
 
 // ==== PlayerScript ====
-// Teleport ducha při „Release Spirit“ zpět do guildovní vesnice (do jeho phaseId).
+// Teleport the ghost back to the guild village phase after "Release Spirit".
 class guild_village_Respawn : public PlayerScript
 {
 public:
     guild_village_Respawn() : PlayerScript("guild_village_Respawn") { }
 
-    // Hráč stiskl "Release Spirit" -> stal se duchem.
+    // The player pressed "Release Spirit" and became a ghost.
     void OnPlayerReleasedGhost(Player* player) override
     {
         if (!player)
@@ -97,9 +97,9 @@ public:
         player->TeleportTo(map, sx, sy, sz, so);
         player->SetPhaseMask(phaseId, true);
 
-        // Volitelné info
+        // Optional info
         ChatHandler(player->GetSession()).SendSysMessage(
-            "|cff00ff00[Guild Village]|r Duch vzkříšení tě přivolal do tvojí guildovní vesnice…");
+            "|cff00ff00[Guild Village]|r The spirit healer has called you back to your guild village.");
     }
 
     [[nodiscard]] bool OnPlayerCanRepopAtGraveyard(Player* player) override
@@ -110,7 +110,7 @@ public:
         auto* st = player->CustomData.GetDefault<GVRepopState>("gv_repop");
         if (st->handledVillageRepop)
         {
-            // reset flag (jednorázové)
+            // Reset the one-shot flag.
             st->handledVillageRepop = false;
             return false;
         }
@@ -119,7 +119,7 @@ public:
     }
 };
 
-// ==== Export registrace z tohoto .cpp ====
+// ==== Export registration from this .cpp ====
 void RegisterGuildVillageRespawn()
 {
     new guild_village_Respawn();

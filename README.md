@@ -1,97 +1,57 @@
 # Guild Village
 
-- Guild Village modul přidává vlastní guildovní vesnice s upgrady, měnou, bossy a expedicemi. Spravuj, rozšiřuj a rozvíjej svou guildovní vesnici.
-- Stačí přidat pouze jedno NPC pro nákup vesnice. ".npc add 987454"
- 
-##
-- Guild Village module adds customizable guild villages with upgrades, currency, bosses, and expeditions. Manage, expand, and develop your guild settlement.  
-- Add only one NPC for village purchase. ".npc add 987454"  
+Guild Village adds customizable guild settlements with upgrades, custom currency, bosses, expeditions, daily and weekly guild quests, village navigation, teleporters, and supporting gameplay systems.
 
-----------------------------------------------------------------------------------------------------------------
+- Village purchase NPC: `.npc add 987454`
+- Main English documentation: [README_EN.md](https://github.com/BeardBear33/mod-guild-village/blob/main/README_EN.md)
+- Legacy README alias: [README_CS.md](https://github.com/BeardBear33/mod-guild-village/blob/main/README_CS.md)
 
-## Addon
-> **Doporučený addon pro WoW 3.3.5a, který zobrazuje informace o vesnici:**  
-> [Guild Village Helper (3.3.5a Addon)](https://github.com/BeardBear33/Guild-Village-Helper-3.3.5a)  
+---
 
-> **Doporučený addon pro WoW 3.3.5a zajišťující správné zobrazování diakritiky:**  
-> [CzechFontFix (3.3.5a Addon)](https://github.com/BeardBear33/Czech-font-fix-addon/releases)
+## Recommended addon
 
-> **Recommended addon for WoW 3.3.5a that displays village information:**  
-> [Guild Village Helper (3.3.5a Addon)](https://github.com/BeardBear33/Guild-Village-Helper-3.3.5a)   
+> **Recommended WoW 3.3.5a addon for village information:**  
+> [Guild Village Helper (3.3.5a Addon)](https://github.com/BeardBear33/Guild-Village-Helper-3.3.5a)
 
-> **Recommended addon for WoW 3.3.5a that ensures correct Czech diacritics display:**  
-> [CzechFontFix (3.3.5a Addon)](https://github.com/BeardBear33/Czech-font-fix-addon/releases)
+---
 
-----------------------------------------------------------------------------------------------------------------
+## Recommended client patch
 
-## Client patch
-> **Doporučený client fix pro modul guild village:**  
+> **Recommended client-side world map fix for Guild Village:**  
 > [Worldmap fix-mod guild village](https://github.com/BeardBear33/Worldmap_fix-mod-guild-village)
 
+---
 
-> **Recommended client fix for guild village module:**  
-> [Worldmap fix-mod guild village](https://github.com/BeardBear33/Worldmap_fix-mod-guild-village)  
+## Language
 
-----------------------------------------------------------------------------------------------------------------
-
-🌍 Vyber jazyk / Choose language:
-- [Čeština](https://github.com/BeardBear33/mod-guild-village/blob/main/README_CS.md)
 - [English](https://github.com/BeardBear33/mod-guild-village/blob/main/README_EN.md)
+- [Legacy alias](https://github.com/BeardBear33/mod-guild-village/blob/main/README_CS.md)
 
-> ⚠️ **Upozornění (CZ):**  
-> Před použitím tohoto modulu si **důkladně** přečti soubor [README_CS.md](https://github.com/BeardBear33/mod-guild-village/blob/main/README_CS.md)  
-> Obsahuje zásadní informace o fungování a omezeních modulu.  
+> ⚠️ **Notice:**  
+> Before using this module, read [README_EN.md](https://github.com/BeardBear33/mod-guild-village/blob/main/README_EN.md) carefully. It contains important setup notes, database requirements, and compatibility limits.
 
-##   
+---
 
-> ⚠️ **Notice (EN):**  
-> Before applying this module, make sure to **carefully** read [README_EN.md](https://github.com/BeardBear33/mod-guild-village/blob/main/README_EN.md)  
-> It contains important information about the module’s behavior and limitations.  
+## Development target
 
-----------------------------------------------------------------------------------------------------------------
+This module is primarily developed and tested on Ubuntu with:
 
-🔧 Tento modul je primárně vyvíjen a testován na Ubuntu v kombinaci s:  
-[AzerothCore WotLK (Playerbot branch)](https://github.com/liyunfan1223/azerothcore-wotlk/tree/Playerbot)
+- [AzerothCore WotLK (Playerbot branch)](https://github.com/liyunfan1223/azerothcore-wotlk/tree/Playerbot)
+- [mod-playerbots (master branch)](https://github.com/liyunfan1223/mod-playerbots)
 
-[mod-playerbots (master branch)](https://github.com/liyunfan1223/mod-playerbots) 
+---
 
-##
+## Roadmap
 
-🔧 This module is primarily developed and tested on Ubuntu using:  
-[AzerothCore WotLK (Playerbot branch)](https://github.com/liyunfan1223/azerothcore-wotlk/tree/Playerbot)
+- A monthly PvE event where enemies attack the village.
+- Repeatable defensive structures for the monthly event, such as mines or harpoons.
+- An NPC that converts guild currency into random profession materials such as Linen Cloth, Copper Ore, or Light Leather.
 
-[mod-playerbots (master branch)](https://github.com/liyunfan1223/mod-playerbots)
+**Currently in progress:**
+- Cleaning up legacy module functionality.
 
-----------------------------------------------------------------------------------------------------------------
+---
 
-***To-Do list:***
+## License
 
-🌐 Česky
-
-- PvE event každý měsíc se spustí najézd nepřátel na vesnici.
-
-- Možnost rozšířit vesnici o defenzivní prvky pro měsíční event s možností opětovného nákupu (např. miny, harpuny apod.)
-
-- NPC, které by z guildovní měny vyrábělo náhodné materiály pro profese (např. Linen Cloth, Copper Ore, Light Leather, atd.).
-
-**Aktuálně se pracuje na:**
-- Čištění od starých funkcí v modulu
-
-##
-  
-🌐 English
-
-- Every month, a PvE event triggers an enemy raid on the village.
-
-- Ability to expand the village with defensive structures for the monthly event, with repeatable purchases (e.g. mines, harpoons, etc.)
-
-- An NPC that converts guild currency into random crafting materials (e.g. Linen Cloth, Copper Ore, Light Leather, etc.).
-
-**Currently working on:**
-- Cleaning out old functions in the module
-
-
-----------------------------------------------------------------------------------------------------------------
-
-# License
 This module is licensed under the [GNU Affero General Public License v3.0](https://github.com/BeardBear33/mod-guild-village/blob/main/LICENSE).

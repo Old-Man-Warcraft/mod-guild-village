@@ -1,10 +1,10 @@
 #=============================================================#
-# Guild Village – základní konfigurace / basic configuration  #
+# Guild Village - basic configuration                      #
 #=============================================================#
 
-# CS: Přepínač jazyka pro texty z modulů (cs | en).
-# EN: Language used for module text output (cs | en).
-GuildVillage.Locale = cs
+# Language used for module text output.
+# English is the maintained default.
+GuildVillage.Locale = en
 
 # CS: Maximální počet současně existujících vesnic.
 #     -1 = neomezeně

@@ -100,10 +100,7 @@ namespace GuildVillageAoe
 
         bool IsEnglishLocale()
         {
-            std::string loc = sConfigMgr->GetOption<std::string>("GuildVillage.Locale", "cs");
-            std::transform(loc.begin(), loc.end(), loc.begin(),
-                [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-            return (loc == "en" || loc == "english");
+            return true;
         }
 
         void SendAoeError(Player* player, AoeErrorReason reason)

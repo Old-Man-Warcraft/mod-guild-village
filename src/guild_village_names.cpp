@@ -11,9 +11,7 @@ static bool g_loaded = false;
 
 static bool IsEN()
 {
-    auto loc = sConfigMgr->GetOption<std::string>("GuildVillage.Locale","cs");
-    std::transform(loc.begin(), loc.end(), loc.begin(), ::tolower);
-    return (loc == "en" || loc == "english");
+    return true;
 }
 
 static void Load()
@@ -25,7 +23,7 @@ static void Load()
         return sConfigMgr->GetOption<std::string>(en ? enKey : csKey, en ? defEN : defCS);
     };
 
-    // ---- Status labels (názvy materiálů) ----
+    // ---- Status labels (material names) ----
     g_all.status.material1 = G(
         "GuildVillage.Material.Material1",
         "GuildVillage.MaterialEN.Material1",
@@ -50,7 +48,7 @@ static void Load()
         "Material4",
         "Material4"
     );
-    // NOVÉ: Gold label
+    // Gold label
     g_all.status.gold = G(
         "GuildVillage.Material.Gold",
         "GuildVillage.MaterialEN.Gold",
@@ -83,25 +81,23 @@ static void Load()
     g_all.units.material4.du = GS("GuildVillage.MaterialUnit.Material4.Dual",     "GuildVillage.MaterialUnitEN.Material4.Dual",     "Material4", "Material4");
     g_all.units.material4.pl = GS("GuildVillage.MaterialUnit.Material4.Plural",   "GuildVillage.MaterialUnitEN.Material4.Plural",   "Material4", "Material4");
 
-    // NOVÉ: GOLD jednotky (výchozí rozumné tvary)
-    // CZ defaulty: 1 "zlato", 2–4 "zlaté", 5+ "zlatých"
-    // EN defaulty: "gold", "gold", "gold" (bez počtu nebo jako "gold coins" si můžeš přepsat v .conf)
+    // Gold unit defaults.
     g_all.units.gold.sg = GS(
         "GuildVillage.MaterialUnit.Gold.Singular",
         "GuildVillage.MaterialUnitEN.Gold.Singular",
-        "zlatý",
+        "gold",
         "gold"
     );
     g_all.units.gold.du = GS(
         "GuildVillage.MaterialUnit.Gold.Dual",
         "GuildVillage.MaterialUnitEN.Gold.Dual",
-        "zlaté",
+        "gold",
         "gold"
     );
     g_all.units.gold.pl = GS(
         "GuildVillage.MaterialUnit.Gold.Plural",
         "GuildVillage.MaterialUnitEN.Gold.Plural",
-        "zlatých",
+        "gold",
         "gold"
     );
 
@@ -119,7 +115,7 @@ static void Load()
     fixUnit(g_all.units.material2);
     fixUnit(g_all.units.material3);
     fixUnit(g_all.units.material4);
-    fixUnit(g_all.units.gold); // <-- NOVÉ
+    fixUnit(g_all.units.gold);
 
     g_loaded = true;
 }
@@ -187,7 +183,7 @@ std::string CountNameGold(uint64 n)
     if (!u.pl.empty()) return u.pl;
 
     // fallback
-    return IsEN() ? "gold" : "zlatý";
+    return "gold";
 }
 
 static std::string JoinParts(std::vector<std::string> const& parts)
@@ -203,7 +199,7 @@ static std::string JoinParts(std::vector<std::string> const& parts)
 
 std::string CostLine(uint32 mat1, uint32 mat2, uint32 mat3, uint32 mat4)
 {
-    // volá novou overload s gold=0 (zpětná kompatibilita)
+    // Calls the new overload with gold=0 for backward compatibility.
     return CostLine(mat1, mat2, mat3, mat4, 0);
 }
 
@@ -212,7 +208,7 @@ std::string CostLine(uint32 mat1, uint32 mat2, uint32 mat3, uint32 mat4, uint32 
     bool en = IsEN();
 
     if (mat1 == 0 && mat2 == 0 && mat3 == 0 && mat4 == 0 && gold == 0)
-        return en ? "Free" : "Zdarma";
+        return "Free";
 
     std::vector<std::string> parts;
     parts.reserve(5);

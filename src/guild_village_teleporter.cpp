@@ -26,9 +26,7 @@ namespace GuildVillage
     enum class Lang { CS, EN };
     static inline Lang LangOpt()
     {
-        std::string loc = sConfigMgr->GetOption<std::string>("GuildVillage.Locale", "cs");
-        std::transform(loc.begin(), loc.end(), loc.begin(), ::tolower);
-        return (loc == "en" || loc == "english") ? Lang::EN : Lang::CS;
+        return Lang::EN;
     }
     static inline char const* T(char const* cs, char const* en)
     {
