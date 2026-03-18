@@ -6,6 +6,7 @@
 #include "Log.h"
 #include "CryptoHash.h"
 #include "Util.h"
+#include "gv_common.h"
 
 #include <filesystem>
 #include <fstream>
@@ -124,8 +125,51 @@ static std::string DetectModuleName()
     return modDir.filename().string();
 }
 
+static bool SchemaExists(std::string const& schemaName)
+{
+    return WorldDatabase.Query(
+        "SELECT 1 FROM INFORMATION_SCHEMA.SCHEMATA "
+        "WHERE SCHEMA_NAME='{}' LIMIT 1",
+        schemaName) != nullptr;
+}
+
+static bool EnsureSchemaAvailable()
+{
+    std::string const schemaName = GuildVillage::DatabaseName();
+
+    if (SchemaExists(schemaName))
+        return true;
+
+    if (!GuildVillage::AutoCreateDatabase())
+    {
+        LOG_ERROR(
+            "gv.customs",
+            "[customs] Database schema '{}' is missing. Create it manually or enable GuildVillage.Database.AutoCreate.",
+            schemaName);
+        return false;
+    }
+
+    WorldDatabase.DirectExecute(
+        Acore::StringFormat(
+            "CREATE DATABASE IF NOT EXISTS {} DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci",
+            GuildVillage::QuotedDatabaseName()));
+
+    if (!SchemaExists(schemaName))
+    {
+        LOG_ERROR("gv.customs", "[customs] Failed to create database schema '{}'.", schemaName);
+        return false;
+    }
+
+    return true;
+}
+
+static std::string QualifiedTable(char const* tableName)
+{
+    return Acore::StringFormat("{}.{}", GuildVillage::QuotedDatabaseName(), tableName);
+}
+
 // helpers
-static bool ColumnExists(char const* db, char const* tbl, char const* col)
+static bool ColumnExists(std::string const& db, char const* tbl, char const* col)
 {
     return WorldDatabase.Query(
         "SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS "
@@ -135,34 +179,42 @@ static bool ColumnExists(char const* db, char const* tbl, char const* col)
 }
 
 // --- tracking tabulka ---
-static void EnsureTrackingTable(std::string const& /*moduleName*/)
+static bool EnsureTrackingTable(std::string const& /*moduleName*/)
 {
-    WorldDatabase.DirectExecute(
-        "CREATE DATABASE IF NOT EXISTS `customs` "
-        "DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    if (!EnsureSchemaAvailable())
+        return false;
 
     WorldDatabase.DirectExecute(
-        "CREATE TABLE IF NOT EXISTS `customs`.`gv_updates` ("
-        "  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,"
-        "  `module` VARCHAR(64) NOT NULL,"                      /* nový tvar */
-        "  `filename` VARCHAR(255) NOT NULL,"
-        "  `sha1` CHAR(40) NOT NULL DEFAULT '',"
-        "  `applied_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,"
-        "  PRIMARY KEY (`id`),"
-        "  UNIQUE KEY `uq_module_file` (`module`,`filename`)"
-        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+        Acore::StringFormat(
+            "CREATE TABLE IF NOT EXISTS {} ("
+            "  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,"
+            "  `module` VARCHAR(64) NOT NULL,"
+            "  `filename` VARCHAR(255) NOT NULL,"
+            "  `sha1` CHAR(40) NOT NULL DEFAULT '',"
+            "  `applied_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+            "  PRIMARY KEY (`id`),"
+            "  UNIQUE KEY `uq_module_file` (`module`,`filename`)"
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;",
+            QualifiedTable("`gv_updates`"))
     );
+
+    return true;
 }
 
 // --- čtení seznamu aplikovaných souborů ---
 static std::unordered_set<std::string> LoadApplied(std::string const& moduleName)
 {
     std::unordered_set<std::string> seen;
-    bool hasModule = ColumnExists("customs", "gv_updates", "module");
+    std::string const schemaName = GuildVillage::DatabaseName();
+    bool hasModule = ColumnExists(schemaName, "gv_updates", "module");
 
     QueryResult r = hasModule
-        ? WorldDatabase.Query("SELECT `filename` FROM `customs`.`gv_updates` WHERE `module` = '{}'", moduleName)
-        : WorldDatabase.Query("SELECT `filename` FROM `customs`.`gv_updates`"); // starý tvar
+        ? WorldDatabase.Query(
+            Acore::StringFormat(
+                "SELECT `filename` FROM {} WHERE `module` = '{}'",
+                QualifiedTable("`gv_updates`"), moduleName))
+        : WorldDatabase.Query(
+            Acore::StringFormat("SELECT `filename` FROM {}", QualifiedTable("`gv_updates`")));
 
     if (r) do { seen.insert(r->Fetch()[0].Get<std::string>()); } while (r->NextRow());
     return seen;
@@ -171,49 +223,63 @@ static std::unordered_set<std::string> LoadApplied(std::string const& moduleName
 // --- zapsání "applied" ---
 static void MarkApplied(std::string const& moduleName, std::string const& filename, std::string const& sha1)
 {
-    bool hasModule = ColumnExists("customs", "gv_updates", "module");
+    bool hasModule = ColumnExists(GuildVillage::DatabaseName(), "gv_updates", "module");
 
     if (hasModule)
     {
         WorldDatabase.DirectExecute(
-            "INSERT INTO `customs`.`gv_updates` (`module`,`filename`,`sha1`) "
-            "VALUES ('{}','{}','{}') "
-            "ON DUPLICATE KEY UPDATE `sha1`=VALUES(`sha1`), `applied_at`=CURRENT_TIMESTAMP",
-            moduleName, filename, sha1
+            Acore::StringFormat(
+                "INSERT INTO {} (`module`,`filename`,`sha1`) "
+                "VALUES ('{}','{}','{}') "
+                "ON DUPLICATE KEY UPDATE `sha1`=VALUES(`sha1`), `applied_at`=CURRENT_TIMESTAMP",
+                QualifiedTable("`gv_updates`"), moduleName, filename, sha1)
         );
     }
     else
     {
         WorldDatabase.DirectExecute(
-            "INSERT INTO `customs`.`gv_updates` (`filename`,`sha1`) "
-            "VALUES ('{}','{}') "
-            "ON DUPLICATE KEY UPDATE `sha1`=VALUES(`sha1`), `applied_at`=CURRENT_TIMESTAMP",
-            filename, sha1
+            Acore::StringFormat(
+                "INSERT INTO {} (`filename`,`sha1`) "
+                "VALUES ('{}','{}') "
+                "ON DUPLICATE KEY UPDATE `sha1`=VALUES(`sha1`), `applied_at`=CURRENT_TIMESTAMP",
+                QualifiedTable("`gv_updates`"), filename, sha1)
         );
     }
 }
 
-// ---------- early bootstrap ----------
-static void EnsureBootstrapEarly(std::string const& moduleName)
+static bool IsCreateDatabaseStatement(std::string const& statement)
 {
-    // 1) Schéma `customs`
-    WorldDatabase.DirectExecute("CREATE DATABASE IF NOT EXISTS `customs` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    std::string normalized = Trim(statement);
+    std::transform(normalized.begin(), normalized.end(), normalized.begin(),
+        [](unsigned char ch) { return std::toupper(ch); });
+
+    return normalized.rfind("CREATE DATABASE", 0) == 0 ||
+        normalized.rfind("CREATE SCHEMA", 0) == 0;
+}
+
+// ---------- early bootstrap ----------
+static bool EnsureBootstrapEarly(std::string const& moduleName)
+{
+    if (!EnsureSchemaAvailable())
+        return false;
 
     // 2) Minimal set tabulek, které může core očekávat hned na startu
     WorldDatabase.DirectExecute(
-        "CREATE TABLE IF NOT EXISTS `customs`.`gv_loot` ("
-        "  `entry` INT UNSIGNED NOT NULL,"
-        "  `currency` ENUM('material1','material2','material3','material4','random') NOT NULL,"
-        "  `chance` FLOAT NOT NULL DEFAULT 100,"
-        "  `min_amount` INT UNSIGNED NOT NULL DEFAULT 1,"
-        "  `max_amount` INT UNSIGNED NOT NULL DEFAULT 1,"
-        "  `comment` VARCHAR(255) NULL,"
-        "  PRIMARY KEY (`entry`,`currency`)"
-        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci"
+        Acore::StringFormat(
+            "CREATE TABLE IF NOT EXISTS {} ("
+            "  `entry` INT UNSIGNED NOT NULL,"
+            "  `currency` ENUM('material1','material2','material3','material4','random') NOT NULL,"
+            "  `chance` FLOAT NOT NULL DEFAULT 100,"
+            "  `min_amount` INT UNSIGNED NOT NULL DEFAULT 1,"
+            "  `max_amount` INT UNSIGNED NOT NULL DEFAULT 1,"
+            "  `comment` VARCHAR(255) NULL,"
+            "  PRIMARY KEY (`entry`,`currency`)"
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci",
+            QualifiedTable("`gv_loot`"))
     );
 
     // tracking tabulka (+ migrace)
-    EnsureTrackingTable(moduleName);
+    return EnsureTrackingTable(moduleName);
 }
 
 // ---------- file collect ----------
@@ -266,6 +332,12 @@ static bool ExecuteSqlFile(std::string const& moduleName, std::string const& fil
     LOG_INFO("gv.customs", "[customs] Executing {} statement(s) from {}", stmts.size(), filenameKey);
     for (auto const& s : stmts)
     {
+        if (!GuildVillage::AutoCreateDatabase() && IsCreateDatabaseStatement(s))
+        {
+            LOG_INFO("gv.customs", "[customs] Skipping schema creation statement in {}", filenameKey);
+            continue;
+        }
+
         std::string prev = s.substr(0, std::min<size_t>(160, s.size()));
         WorldDatabase.DirectExecute(s);
         LOG_DEBUG("gv.customs", "[customs] exec: {}{}", prev.c_str(), s.size()>160?" ...":"");
@@ -312,7 +384,10 @@ public:
     void OnAfterConfigLoad(bool /*reload*/) override
     {
         std::string moduleName = DetectModuleName();
-        LOG_INFO("gv.customs", "[customs] Early bootstrap (schema + minimal tables) for module '{}'", moduleName);
+        LOG_INFO(
+            "gv.customs",
+            "[customs] Early bootstrap for module '{}' using schema '{}'",
+            moduleName, GuildVillage::DatabaseName());
         EnsureBootstrapEarly(moduleName);
     }
 
@@ -330,9 +405,11 @@ public:
         LOG_INFO("gv.customs", "┃ Guild Village – Customs SQL Updater ┃");
         LOG_INFO("gv.customs", "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛");
         LOG_INFO("gv.customs", "[customs] Module: {}", moduleName);
+        LOG_INFO("gv.customs", "[customs] Database schema: {}", GuildVillage::DatabaseName());
         LOG_INFO("gv.customs", "[customs] SQL root: {}", sqlRoot.string());
 
-        EnsureTrackingTable(moduleName);
+        if (!EnsureTrackingTable(moduleName))
+            return;
 
         auto applied    = LoadApplied(moduleName);
         uint32 appliedN = 0;

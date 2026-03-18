@@ -7,6 +7,7 @@
 #include "Chat.h"
 #include "Config.h"
 #include "DatabaseEnv.h"
+#include "gv_common.h"
 #include "Log.h"
 #include "WorldSession.h"
 #include "Group.h"

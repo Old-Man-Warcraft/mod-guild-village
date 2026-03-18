@@ -13,13 +13,19 @@ This module provides:
 
 ## Installation requirements
 
-For the customs autoupdater to work, the database user from `WorldDatabaseInfo` must also have access to the `customs` database:
+Guild Village reads its customs schema name from `GuildVillage.Database.Name`.
+By default the module expects an existing `customs` schema and does not create it unless `GuildVillage.Database.AutoCreate = 1`.
+
+For the customs autoupdater to work, the database user from `WorldDatabaseInfo` must also have access to the configured Guild Village schema:
 
 ```
 GRANT CREATE ON *.* TO 'acore'@'127.0.0.1';
+CREATE DATABASE customs CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 GRANT ALL PRIVILEGES ON customs.* TO 'acore'@'127.0.0.1';
 FLUSH PRIVILEGES;
 ```
+
+If you want to use a different schema name, change `GuildVillage.Database.Name` and apply the grants to that schema instead.
 
 If you installed the module before November 27, 2025, apply the legacy migration in `customs/archive/updates/014_important_update.sql` first. After that, the module updates itself automatically during server startup.
 
@@ -53,7 +59,7 @@ If any of these IDs are already occupied, move the module to another free range 
 ## Notes
 
 - SmartAI was removed from the cooking and riding trainers. Only movement remains.
-- The module uses a dedicated `customs` database for village-specific tables.
+- The module uses a dedicated configurable customs schema for village-specific tables.
 - `gv_gameobject_template` can pre-spawn objects before village creation. It is applied once during purchase.
 - `gv_creature_template` can pre-spawn creatures before village creation. It is applied once during purchase.
 

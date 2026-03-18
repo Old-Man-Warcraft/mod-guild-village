@@ -2,7 +2,6 @@
 -- Custom creatures (987400 - 987421)
 -- World DB patch
 -- ================================================
-USE `acore_world`;
 
 UPDATE `creature_template`
 SET

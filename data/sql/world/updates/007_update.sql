@@ -2,8 +2,6 @@
 -- acore_world Update: Boss strategy/position
 -- ================================
 
-USE `acore_world`;
-
 -- creature: Change spawn point
 UPDATE `creature`
    SET `position_x` = 176.613,

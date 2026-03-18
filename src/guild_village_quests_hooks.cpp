@@ -14,6 +14,7 @@
 #include "SpellMgr.h"
 #include "Group.h"
 #include "DatabaseEnv.h"
+#include "gv_common.h"
 
 #include <unordered_map>
 #include <algorithm>

@@ -16,6 +16,7 @@
 #include "ObjectAccessor.h"
 #include "Chat.h"
 #include "DatabaseEnv.h"
+#include "gv_common.h"
 
 #include <mutex>
 #include <unordered_map>

@@ -6,8 +6,6 @@
 
 START TRANSACTION;
 
-USE `acore_world`;
-
 -- -----------------------------------
 -- creature_template (PK: entry)
 -- -----------------------------------

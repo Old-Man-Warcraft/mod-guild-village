@@ -5,6 +5,7 @@
 #include "Player.h"
 #include "Guild.h"
 #include "DatabaseEnv.h"
+#include "gv_common.h"
 #include "Chat.h"
 #include "StringFormat.h"
 #include "Log.h"

@@ -5,6 +5,7 @@
 #include "Guild.h"
 #include "Creature.h"
 #include "DatabaseEnv.h"
+#include "gv_common.h"
 #include "Chat.h"
 #include "Config.h"
 #include "Group.h"

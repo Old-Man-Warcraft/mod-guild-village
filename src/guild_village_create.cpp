@@ -72,12 +72,113 @@ namespace GuildVillage
         return (LangOpt() == Lang::EN) ? en : cs;
     }
 
-    static inline uint32 PhaseIdForGuild(uint32 guildId) { return guildId + 10; }
-
-    struct GVPhaseData : public DataMap::Base
+    static std::optional<uint32> AllocateVillagePhaseMask()
     {
-        uint32 phaseMask = 0;
+        std::unordered_set<uint32> usedMasks;
+
+        if (QueryResult res = WorldDatabase.Query("SELECT phase FROM customs.gv_guild"))
+        {
+            do
+            {
+                uint32 phaseMask = res->Fetch()[0].Get<uint32>();
+                if (IsUsableVillagePhaseMask(phaseMask))
+                    usedMasks.insert(phaseMask);
+            }
+            while (res->NextRow());
+        }
+
+        return FindFreeVillagePhaseMask(usedMasks);
+    }
+
+    struct VillagePhaseRewrite
+    {
+        uint32 guildId;
+        uint32 oldPhaseMask;
+        uint32 newPhaseMask;
     };
+
+    static void NormalizeVillagePhaseMasks()
+    {
+        std::vector<std::pair<uint32, uint32>> villages;
+
+        if (QueryResult res = WorldDatabase.Query(
+                "SELECT guild, phase FROM customs.gv_guild ORDER BY guild"))
+        {
+            do
+            {
+                Field* fields = res->Fetch();
+                villages.emplace_back(fields[0].Get<uint32>(), fields[1].Get<uint32>());
+            }
+            while (res->NextRow());
+        }
+
+        if (villages.empty())
+            return;
+
+        if (villages.size() > GuildVillagePhaseCapacity())
+        {
+            LOG_ERROR("modules",
+                "GV: Found {} villages but only {} isolated phase masks are available. "
+                "Delete villages or lower GuildVillage.MaxVillages.",
+                villages.size(), GuildVillagePhaseCapacity());
+            return;
+        }
+
+        std::unordered_set<uint32> usedMasks;
+        std::vector<VillagePhaseRewrite> rewrites;
+
+        for (auto const& [guildId, oldPhaseMask] : villages)
+        {
+            uint32 newPhaseMask = 0;
+
+            if (IsUsableVillagePhaseMask(oldPhaseMask) &&
+                usedMasks.find(oldPhaseMask) == usedMasks.end())
+            {
+                newPhaseMask = oldPhaseMask;
+            }
+            else
+            {
+                std::optional<uint32> freePhaseMask = FindFreeVillagePhaseMask(usedMasks);
+                if (!freePhaseMask.has_value())
+                {
+                    LOG_ERROR("modules",
+                        "GV: Unable to allocate an isolated phase mask while normalizing guild {}.",
+                        guildId);
+                    return;
+                }
+
+                newPhaseMask = *freePhaseMask;
+            }
+
+            usedMasks.insert(newPhaseMask);
+
+            if (newPhaseMask != oldPhaseMask)
+                rewrites.push_back({ guildId, oldPhaseMask, newPhaseMask });
+        }
+
+        if (rewrites.empty())
+            return;
+
+        for (VillagePhaseRewrite const& rewrite : rewrites)
+        {
+            WorldDatabase.Execute(
+                "UPDATE customs.gv_guild SET phase={} WHERE guild={}",
+                rewrite.newPhaseMask, rewrite.guildId);
+            WorldDatabase.Execute(
+                "UPDATE creature SET phaseMask={} WHERE map={} AND phaseMask={}",
+                rewrite.newPhaseMask, DefMap(), rewrite.oldPhaseMask);
+            WorldDatabase.Execute(
+                "UPDATE gameobject SET phaseMask={} WHERE map={} AND phaseMask={}",
+                rewrite.newPhaseMask, DefMap(), rewrite.oldPhaseMask);
+            WorldDatabase.Execute(
+                "UPDATE customs.gv_teleport_player SET phase={} WHERE guild={} AND phase={}",
+                rewrite.newPhaseMask, rewrite.guildId, rewrite.oldPhaseMask);
+
+            LOG_INFO("modules",
+                "GV: Normalized guild {} phase mask {} -> {}.",
+                rewrite.guildId, rewrite.oldPhaseMask, rewrite.newPhaseMask);
+        }
+    }
 
     // Aktuální počet vesnic
     static uint32 CountVillages()
@@ -393,8 +494,6 @@ namespace GuildVillage
         uint32 phaseId = 0;
         if (QueryResult r = WorldDatabase.Query("SELECT phase FROM customs.gv_guild WHERE guild={}", guildId))
             phaseId = (*r)[0].Get<uint32>();
-        if (!phaseId)
-            phaseId = PhaseIdForGuild(guildId); // fallback
 
         // 0) smazat měny / upgrady / produkci / expedice / tp bod
         WorldDatabase.Execute("DELETE FROM customs.gv_currency           WHERE guildId={}", guildId);
@@ -408,6 +507,7 @@ namespace GuildVillage
 		WorldDatabase.Execute("DELETE FROM customs.gv_teleport_player    WHERE guild={}", guildId);
 		
 
+        if (phaseId)
         {
             // seber GUIDy z world.creature
             std::vector<uint32> creatureGuids;
@@ -443,8 +543,11 @@ namespace GuildVillage
         }
 
         // 1) smazat samotné spawny z world.*
-        WorldDatabase.Execute("DELETE FROM creature   WHERE map={} AND phaseMask={}", DefMap(), phaseId);
-        WorldDatabase.Execute("DELETE FROM gameobject WHERE map={} AND phaseMask={}", DefMap(), phaseId);
+        if (phaseId)
+        {
+            WorldDatabase.Execute("DELETE FROM creature   WHERE map={} AND phaseMask={}", DefMap(), phaseId);
+            WorldDatabase.Execute("DELETE FROM gameobject WHERE map={} AND phaseMask={}", DefMap(), phaseId);
+        }
 
         // 2) a nakonec záznam vesnice
         WorldDatabase.Execute("DELETE FROM customs.gv_guild WHERE guild={}", guildId);
@@ -466,16 +569,24 @@ namespace GuildVillage
                 return false;
         }
 
-        uint32 phaseId = PhaseIdForGuild(guildId);
+        std::optional<uint32> phaseId = AllocateVillagePhaseMask();
+        if (!phaseId.has_value())
+        {
+            LOG_ERROR("modules",
+                "GV: Unable to allocate an isolated phase mask for guild {}.",
+                guildId);
+            return false;
+        }
+
         WorldDatabase.Execute(
             "INSERT INTO customs.gv_guild (guild, phase, map, positionx, positiony, positionz, orientation, last_update) "
             "VALUES ({}, {}, {}, {}, {}, {}, {}, NOW())",
-            guildId, phaseId, DefMap(), DefX(), DefY(), DefZ(), DefO()
+            guildId, *phaseId, DefMap(), DefX(), DefY(), DefZ(), DefO()
         );
 
         EnsureCurrencyRow(guildId);
         EnsureExpeditionGuildRow(guildId);
-        InstallBaseLayout(guildId, phaseId, "base");
+        InstallBaseLayout(guildId, *phaseId, "base");
         return true;
     }
 
@@ -527,17 +638,25 @@ namespace GuildVillage
         if (needCopper > 0) player->ModifyMoney(-(int64)needCopper);
         if (PriceItemId() > 0 && PriceItemCount() > 0) player->DestroyItemCount(PriceItemId(), PriceItemCount(), true);
 
-        uint32 phaseId = PhaseIdForGuild(guildId);
+        std::optional<uint32> phaseId = AllocateVillagePhaseMask();
+        if (!phaseId.has_value())
+        {
+            ch.SendSysMessage(T(
+                "Pro další guildovní vesnici už není volná izolovaná phase.",
+                "No isolated phase is available for another guild village."));
+            return false;
+        }
+
         WorldDatabase.Execute(
             "INSERT INTO customs.gv_guild "
             "(guild, phase, map, positionx, positiony, positionz, orientation, last_update) "
             "VALUES ({}, {}, {}, {}, {}, {}, {}, NOW())",
-            guildId, phaseId, DefMap(), DefX(), DefY(), DefZ(), DefO()
+            guildId, *phaseId, DefMap(), DefX(), DefY(), DefZ(), DefO()
         );
 
         EnsureCurrencyRow(guildId);
         EnsureExpeditionGuildRow(guildId);
-        InstallBaseLayout(guildId, phaseId, "base");
+        InstallBaseLayout(guildId, *phaseId, "base");
 
         ch.SendSysMessage(T("Gratuluji! Tvoje guilda zakoupila guildovní vesnici.",
                             "Congratulations! Your guild has purchased a village."));
@@ -809,6 +928,8 @@ public:
     // zavolá se při startu worldserveru
     void OnStartup() override
     {
+        GuildVillage::NormalizeVillagePhaseMasks();
+
         LOG_INFO("modules", "GV: Startup cleanup check begin.");
         GuildVillage::CleanupInactiveVillages();
         LOG_INFO("modules", "GV: Startup cleanup check done.");

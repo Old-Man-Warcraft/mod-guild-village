@@ -1,7 +1,6 @@
 -- ================================================
 -- Guild Village: PvP / Arena POI
 -- ================================================
-USE `acore_world`;
 
 DELETE FROM `points_of_interest`
 WHERE `ID` = 1248;

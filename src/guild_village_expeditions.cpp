@@ -10,6 +10,7 @@
 #include "Chat.h"
 #include "WorldSession.h"
 #include "DatabaseEnv.h"
+#include "gv_common.h"
 #include "ObjectAccessor.h"
 #include "StringFormat.h"
 #include "GuildMgr.h"

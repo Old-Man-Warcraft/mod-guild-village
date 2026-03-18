@@ -4,6 +4,7 @@
 #include "Player.h"
 #include "Guild.h"
 #include "DatabaseEnv.h"
+#include "gv_common.h"
 #include "DataMap.h"
 #include "Chat.h"
 #include "Config.h"
@@ -13,12 +14,6 @@ static inline uint32 DefMap()
 {
     return sConfigMgr->GetOption<uint32>("GuildVillage.Default.Map", 37);
 }
-
-// ==== Shared per-player stash (same name/type as commands/NPC) ====
-struct GVPhaseData : public DataMap::Base
-{
-    uint32 phaseMask = 0;
-};
 
 struct GVRepopState : public DataMap::Base
 {
@@ -86,7 +81,7 @@ public:
         if (!LoadVillageRow(g->GetId(), map, baseX, baseY, baseZ, baseO, phaseId))
             return;
 
-        player->CustomData.GetDefault<GVPhaseData>("gv_phase")->phaseMask = phaseId;
+        player->CustomData.GetDefault<GuildVillage::GVPhaseData>("gv_phase")->phaseMask = phaseId;
 
         float sx=baseX, sy=baseY, sz=baseZ, so=baseO;
         (void)FindSpiritHealerPos(map, phaseId, sx, sy, sz, so);

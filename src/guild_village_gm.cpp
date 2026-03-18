@@ -6,6 +6,7 @@
 #include "WorldSession.h"
 #include "Player.h"
 #include "DatabaseEnv.h"
+#include "gv_common.h"
 #include "Log.h"
 #include "StringFormat.h"
 #include "Config.h"
@@ -39,9 +40,6 @@ static inline uint32 DefMap() { return sConfigMgr->GetOption<uint32>("GuildVilla
 
 namespace
 {
-    // per-player stash stejného jména/typu (.commands/.respawn…)
-    struct GVPhaseData : public DataMap::Base { uint32 phaseMask = 0; };
-
     enum class Lang { CS, EN };
     static inline Lang LangOpt()
     {

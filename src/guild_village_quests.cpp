@@ -11,6 +11,7 @@
 #include "Chat.h"
 #include "WorldSession.h"
 #include "DatabaseEnv.h"
+#include "gv_common.h"
 #include "StringFormat.h"
 #include "ObjectMgr.h"
 #include "Map.h"

@@ -3,6 +3,7 @@
 #include "ScriptMgr.h"
 #include "Guild.h"
 #include "DatabaseEnv.h"
+#include "gv_common.h"
 #include "Config.h"
 #include "Log.h"
 
@@ -17,11 +18,6 @@ namespace GuildVillage
     static inline uint32 DefMap()
     {
         return sConfigMgr->GetOption<uint32>("GuildVillage.Default.Map", 37);
-    }
-
-    static inline uint32 PhaseIdForGuild(uint32 guildId)
-    {
-        return guildId + 10;
     }
 
     static std::optional<uint32> LoadGuildPhase(uint32 guildId)
@@ -57,8 +53,7 @@ namespace GuildVillage
     // Hlavní mazání pro danou guildu
     static void WipeGuildVillage(uint32 guildId)
     {
-        // Zjistit phase z DB (preferovaná), jinak fallback na přesné ID z guildId
-        uint32 phaseId = LoadGuildPhase(guildId).value_or(PhaseIdForGuild(guildId));
+        uint32 phaseId = LoadGuildPhase(guildId).value_or(0);
 
         // 1) customs: měny a upgrady
         WorldDatabase.Execute(
@@ -100,6 +95,7 @@ namespace GuildVillage
 		);
 
         // 1.5) Vyčistit respawny v characters.* pro GUIDy této phase
+        if (phaseId)
         {
             std::vector<uint32> creatureGuids;
             if (QueryResult qc = WorldDatabase.Query(
@@ -125,10 +121,13 @@ namespace GuildVillage
         }
 		
         // 2) world spawny pro danou phase na mapě vesnice
-        WorldDatabase.Execute(
-            "DELETE FROM creature WHERE map={} AND phaseMask={}", DefMap(), phaseId);
-        WorldDatabase.Execute(
-            "DELETE FROM gameobject WHERE map={} AND phaseMask={}", DefMap(), phaseId);
+        if (phaseId)
+        {
+            WorldDatabase.Execute(
+                "DELETE FROM creature WHERE map={} AND phaseMask={}", DefMap(), phaseId);
+            WorldDatabase.Execute(
+                "DELETE FROM gameobject WHERE map={} AND phaseMask={}", DefMap(), phaseId);
+        }
 
 		// 2.5) produkce (aktivní sloty + koupené ranky produkce)
 		WorldDatabase.Execute(

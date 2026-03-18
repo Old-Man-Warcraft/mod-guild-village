@@ -439,13 +439,6 @@ namespace
         return sLower == "questweekly" || sLower == "qw";
     }
 
-
-    // === Per-player stash (sdílené jméno s ostatními částmi modu) ===
-    struct GVPhaseData : public DataMap::Base
-    {
-        uint32 phaseMask = 0; // cílová phase po teleportu
-    };
-
     // === PlayerScript: sjednocené chování pro příkaz i NPC ===
     class guild_village_PlayerPhase : public PlayerScript
     {
@@ -469,7 +462,7 @@ namespace
             if (InVillage(player))
             {
                 // 1) stash z příkazu/NPC (zapsán přes GetDefault v teleportu)
-                if (auto* stash = player->CustomData.Get<GVPhaseData>("gv_phase"))
+                if (auto* stash = player->CustomData.Get<GuildVillage::GVPhaseData>("gv_phase"))
                 {
                     if (stash->phaseMask)
                     {
@@ -1475,7 +1468,7 @@ Alias: |cff00ff00.v aoeloot|r)");
                 uint32 usePhase = hasPersonal ? (phaseMaskPersonal ? phaseMaskPersonal : phaseMaskDef) : phaseMaskDef;
 
                 // stash phase => PlayerScript ji aplikuje po dokončení TeleportTo
-                auto* stash = player->CustomData.GetDefault<GVPhaseData>("gv_phase");
+                auto* stash = player->CustomData.GetDefault<GuildVillage::GVPhaseData>("gv_phase");
                 stash->phaseMask = usePhase;
 				
 				SaveBackPointIfEligible(player);
