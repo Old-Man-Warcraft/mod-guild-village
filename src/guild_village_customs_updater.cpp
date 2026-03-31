@@ -178,6 +178,50 @@ static bool ColumnExists(std::string const& db, char const* tbl, char const* col
     ) != nullptr;
 }
 
+static bool TableExists(std::string const& db, char const* tbl)
+{
+    return WorldDatabase.Query(
+        "SELECT 1 FROM INFORMATION_SCHEMA.TABLES "
+        "WHERE TABLE_SCHEMA='{}' AND TABLE_NAME='{}' LIMIT 1",
+        db, tbl
+    ) != nullptr;
+}
+
+static std::string NormalizeTrackedFilenameKey(std::string key)
+{
+    std::replace(key.begin(), key.end(), '\\', '/');
+    key = Trim(std::move(key));
+
+    for (char const* prefix : { "base", "include", "updates" })
+    {
+        std::string const single = std::string(prefix) + "/";
+        std::string const doubled = single + single;
+
+        if (key.rfind(doubled, 0) == 0)
+            return single + key.substr(doubled.size());
+    }
+
+    return key;
+}
+
+static void RememberAppliedKey(std::unordered_set<std::string>& seen, std::string const& filename)
+{
+    std::string const raw = Trim(filename);
+    if (raw.empty())
+        return;
+
+    seen.insert(raw);
+    seen.insert(NormalizeTrackedFilenameKey(raw));
+}
+
+static bool HasExistingVillageState()
+{
+    std::string const schemaName = GuildVillage::DatabaseName();
+    return TableExists(schemaName, "gv_guild") ||
+        TableExists(schemaName, "gv_currency") ||
+        TableExists(schemaName, "gv_upgrades");
+}
+
 // --- tracking tabulka ---
 static bool EnsureTrackingTable(std::string const& /*moduleName*/)
 {
@@ -208,15 +252,41 @@ static std::unordered_set<std::string> LoadApplied(std::string const& moduleName
     std::string const schemaName = GuildVillage::DatabaseName();
     bool hasModule = ColumnExists(schemaName, "gv_updates", "module");
 
-    QueryResult r = hasModule
-        ? WorldDatabase.Query(
+    if (hasModule)
+    {
+        QueryResult scoped = WorldDatabase.Query(
             Acore::StringFormat(
                 "SELECT `filename` FROM {} WHERE `module` = '{}'",
-                QualifiedTable("`gv_updates`"), moduleName))
-        : WorldDatabase.Query(
+                QualifiedTable("`gv_updates`"), moduleName));
+
+        if (scoped)
+            do { RememberAppliedKey(seen, scoped->Fetch()[0].Get<std::string>()); } while (scoped->NextRow());
+
+        if (!seen.empty())
+            return seen;
+
+        QueryResult legacy = WorldDatabase.Query(
             Acore::StringFormat("SELECT `filename` FROM {}", QualifiedTable("`gv_updates`")));
 
-    if (r) do { seen.insert(r->Fetch()[0].Get<std::string>()); } while (r->NextRow());
+        if (legacy)
+        {
+            LOG_WARN(
+                GuildVillage::LogCategory::Customs,
+                "[customs] No gv_updates rows matched module '{}'; falling back to legacy unscoped tracker rows.",
+                moduleName);
+
+            do { RememberAppliedKey(seen, legacy->Fetch()[0].Get<std::string>()); } while (legacy->NextRow());
+        }
+
+        return seen;
+    }
+
+    QueryResult r = WorldDatabase.Query(
+        Acore::StringFormat("SELECT `filename` FROM {}", QualifiedTable("`gv_updates`")));
+
+    if (r)
+        do { RememberAppliedKey(seen, r->Fetch()[0].Get<std::string>()); } while (r->NextRow());
+
     return seen;
 }
 
@@ -361,9 +431,13 @@ static void RunPass(char const* label, fs::path const& dir, std::string const& m
     std::vector<std::string> files; CollectSqlFiles(dir.string(), files);
     for (auto const& full : files)
     {
-        std::string filenameKey = (std::string(label) + "/" + RelKey(dir.string(), full));
+        std::string filenameKey = NormalizeTrackedFilenameKey(std::string(label) + "/" + RelKey(dir.string(), full));
         if (applied.count(filenameKey)) continue;
-        if (ExecuteSqlFile(moduleName, full, filenameKey)){ applied.insert(filenameKey); ++nApplied; }
+        if (ExecuteSqlFile(moduleName, full, filenameKey))
+        {
+            RememberAppliedKey(applied, filenameKey);
+            ++nApplied;
+        }
     }
 }
 
@@ -414,7 +488,21 @@ public:
         auto applied    = LoadApplied(moduleName);
         uint32 appliedN = 0;
 
-        RunPass("base",    dirBase, moduleName, applied, appliedN);
+        bool hasTrackedBase = std::any_of(applied.begin(), applied.end(), [](std::string const& key)
+        {
+            return key.rfind("base/", 0) == 0;
+        });
+
+        if (!hasTrackedBase && HasExistingVillageState())
+        {
+            LOG_ERROR(
+                GuildVillage::LogCategory::Customs,
+                "[customs] Existing Guild Village tables were detected, but no base tracker rows matched. "
+                "Refusing to rerun destructive base SQL automatically.");
+        }
+        else
+            RunPass("base", dirBase, moduleName, applied, appliedN);
+
         RunPass("include", dirInc,  moduleName, applied, appliedN);
         RunPass("updates", dirUpd,  moduleName, applied, appliedN);
 
