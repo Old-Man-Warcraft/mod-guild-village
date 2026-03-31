@@ -13,9 +13,6 @@
 #include <chrono>
 #include <limits>
 
-using namespace std::chrono;
-using namespace std::chrono_literals;
-
 // -------- Lokalizace (cs/en) --------
 namespace GuildVillageLoc
 {
@@ -151,11 +148,13 @@ struct boss_thalor_the_lifebinder : public ScriptedAI
     void CollectPlayers(std::vector<Player*>& out, float radius = MAX_LOS_RANGE)
     {
         out.clear();
-        if (Map* map = me->GetMap())
+        Map* map = me->GetMap();
+        if (map)
         {
             for (auto const& ref : map->GetPlayers())
             {
-                if (Player* p = ref.GetSource())
+                Player* p = ref.GetSource();
+                if (p)
                 {
                     if (!p->IsAlive())
                         continue;
@@ -220,22 +219,24 @@ struct boss_thalor_the_lifebinder : public ScriptedAI
         if (!ThalorHeroic())
             return;
 
-        if (Aura* a = me->GetAura(SPELL_LIFEBLOOM_H))
+        Aura* aura = me->GetAura(SPELL_LIFEBLOOM_H);
+        if (aura)
         {
-            uint8 stacks = a->GetStackAmount();
+            uint8 stacks = aura->GetStackAmount();
             if (stacks < 3)
-                a->SetStackAmount(stacks + 1);
-            a->SetDuration(6000);
-            a->SetMaxDuration(6000);
+                aura->SetStackAmount(stacks + 1);
+            aura->SetDuration(6000);
+            aura->SetMaxDuration(6000);
         }
         else
         {
             me->AddAura(SPELL_LIFEBLOOM_H, me);
-            if (Aura* b = me->GetAura(SPELL_LIFEBLOOM_H))
+            Aura* lifebloomAura = me->GetAura(SPELL_LIFEBLOOM_H);
+            if (lifebloomAura)
             {
-                b->SetDuration(6000);
-                b->SetMaxDuration(6000);
-                b->SetStackAmount(1);
+                lifebloomAura->SetDuration(6000);
+                lifebloomAura->SetMaxDuration(6000);
+                lifebloomAura->SetStackAmount(1);
             }
         }
     }
@@ -257,18 +258,16 @@ struct boss_thalor_the_lifebinder : public ScriptedAI
 
     void JustEngagedWith(Unit* /*who*/) override
     {
-        using namespace std::chrono;
-
         me->setActive(true);
         me->CallForHelp(175.0f);
         YellAggro();
 
-        events.ScheduleEvent(EVENT_ROOTS, milliseconds(ROOTS_FIRST_MS));
+        events.ScheduleEvent(EVENT_ROOTS, std::chrono::milliseconds(ROOTS_FIRST_MS));
         tRootsMs = ROOTS_FIRST_MS;
 
-        events.ScheduleEvent(EVENT_VENOM_TICK, milliseconds(VENOM_TICK_MS));
+        events.ScheduleEvent(EVENT_VENOM_TICK, std::chrono::milliseconds(VENOM_TICK_MS));
 
-        events.ScheduleEvent(EVENT_BERSERK, 5min);
+        events.ScheduleEvent(EVENT_BERSERK, std::chrono::minutes(5));
     }
 
     void JustDied(Unit* /*killer*/) override
@@ -294,9 +293,10 @@ struct boss_thalor_the_lifebinder : public ScriptedAI
 
         if (targets.empty())
         {
-            if (Unit* v = me->GetVictim())
-                if (me->GetDistance(v) <= MELEE_PICK_RANGE + 1.0f)
-                    me->CastSpell(v, SPELL_JUDGEMENT_WRATH, false);
+            Unit* victim = me->GetVictim();
+            if (victim)
+                if (me->GetDistance(victim) <= MELEE_PICK_RANGE + 1.0f)
+                    me->CastSpell(victim, SPELL_JUDGEMENT_WRATH, false);
         }
         else
         {
@@ -324,8 +324,9 @@ struct boss_thalor_the_lifebinder : public ScriptedAI
 
         me->CastSpell(me, SPELL_STORM_WAVE_H, true);
 
-        if (Player* far = PickDistantTarget(STORM_MIN_DIST, MAX_LOS_RANGE))
-            me->CastSpell(far, SPELL_STORM_WAVE_H, false);
+        Player* farTarget = PickDistantTarget(STORM_MIN_DIST, MAX_LOS_RANGE);
+        if (farTarget)
+            me->CastSpell(farTarget, SPELL_STORM_WAVE_H, false);
         else
             me->CastSpell(me, SPELL_STORM_WAVE_H, true);
     }
@@ -340,11 +341,12 @@ struct boss_thalor_the_lifebinder : public ScriptedAI
         if (nextMajor <= (VENOM_CAST_MS + VENOM_SAFETY_BUFFER))
             return;
 
-		if (Player* t = RandomPlayer(MAX_LOS_RANGE))
-		{
-			venomLockMs = VENOM_CAST_MS + 1000;
-			me->CastSpell(t, SPELL_VENOM_BOLT, false);
-		}
+        Player* target = RandomPlayer(MAX_LOS_RANGE);
+        if (target)
+        {
+            venomLockMs = VENOM_CAST_MS + 1000;
+            me->CastSpell(target, SPELL_VENOM_BOLT, false);
+        }
     }
 
     // -------- Update --------
@@ -366,8 +368,6 @@ struct boss_thalor_the_lifebinder : public ScriptedAI
 
         events.Update(diff);
 
-        using namespace std::chrono;
-
         uint32 ev;
         while ((ev = events.ExecuteEvent()))
         {
@@ -377,14 +377,14 @@ struct boss_thalor_the_lifebinder : public ScriptedAI
                 {
                     if (me->HasUnitState(UNIT_STATE_CASTING))
                     {
-                        events.ScheduleEvent(EVENT_ROOTS, 200ms);
+                        events.ScheduleEvent(EVENT_ROOTS, std::chrono::milliseconds(200));
                         tRootsMs = 200;
                         break;
                     }
 
                     DoEntanglingRoots();
 
-                    events.ScheduleEvent(EVENT_WRATH, milliseconds(WRATH_AFTER_ROOTS_MS));
+                    events.ScheduleEvent(EVENT_WRATH, std::chrono::milliseconds(WRATH_AFTER_ROOTS_MS));
                     tRootsMs = TIMER_INF;
                     tWrathMs = WRATH_AFTER_ROOTS_MS;
                     break;
@@ -394,14 +394,14 @@ struct boss_thalor_the_lifebinder : public ScriptedAI
                 {
                     if (me->HasUnitState(UNIT_STATE_CASTING))
                     {
-                        events.ScheduleEvent(EVENT_WRATH, 200ms);
+                        events.ScheduleEvent(EVENT_WRATH, std::chrono::milliseconds(200));
                         tWrathMs = 200;
                         break;
                     }
 
                     DoJudgementOfWrath();
 
-                    events.ScheduleEvent(EVENT_NATURE_BOMB, milliseconds(BOMB_AFTER_WRATH_MS));
+                    events.ScheduleEvent(EVENT_NATURE_BOMB, std::chrono::milliseconds(BOMB_AFTER_WRATH_MS));
                     tWrathMs = TIMER_INF;
                     tBombMs  = BOMB_AFTER_WRATH_MS;
                     break;
@@ -411,7 +411,7 @@ struct boss_thalor_the_lifebinder : public ScriptedAI
                 {
                     if (me->HasUnitState(UNIT_STATE_CASTING))
                     {
-                        events.ScheduleEvent(EVENT_NATURE_BOMB, 200ms);
+                        events.ScheduleEvent(EVENT_NATURE_BOMB, std::chrono::milliseconds(200));
                         tBombMs = 200;
                         break;
                     }
@@ -420,14 +420,14 @@ struct boss_thalor_the_lifebinder : public ScriptedAI
 
                     if (ThalorHeroic())
                     {
-                        events.ScheduleEvent(EVENT_STORM_WAVE, milliseconds(STORM_AFTER_BOMB_MS));
+                        events.ScheduleEvent(EVENT_STORM_WAVE, std::chrono::milliseconds(STORM_AFTER_BOMB_MS));
                         tBombMs  = TIMER_INF;
                         tStormMs = STORM_AFTER_BOMB_MS;
                         tRootsMs = TIMER_INF;
                     }
                     else
                     {
-                        events.ScheduleEvent(EVENT_ROOTS, milliseconds(ROOTS_AFTER_BOMB_MS));
+                        events.ScheduleEvent(EVENT_ROOTS, std::chrono::milliseconds(ROOTS_AFTER_BOMB_MS));
                         tBombMs  = TIMER_INF;
                         tRootsMs = ROOTS_AFTER_BOMB_MS;
                     }
@@ -441,14 +441,14 @@ struct boss_thalor_the_lifebinder : public ScriptedAI
 
                     if (me->HasUnitState(UNIT_STATE_CASTING))
                     {
-                        events.ScheduleEvent(EVENT_STORM_WAVE, 200ms);
+                        events.ScheduleEvent(EVENT_STORM_WAVE, std::chrono::milliseconds(200));
                         tStormMs = 200;
                         break;
                     }
 
                     DoStormWaveHeroic();
 
-                    events.ScheduleEvent(EVENT_ROOTS, 0ms);
+                    events.ScheduleEvent(EVENT_ROOTS, std::chrono::milliseconds(0));
                     tStormMs = TIMER_INF;
                     tRootsMs = 0;
                     break;
